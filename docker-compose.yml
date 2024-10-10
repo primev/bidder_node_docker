@@ -3,8 +3,6 @@ version: '3'
 services:
   mev-commit-bidder:
     build: .
-    ports:
-      - "13523:13523"
     environment:
       DOMAIN: testnet.mev-commit.xyz
       PRIVATE_KEY_BIDDER: ${PRIVATE_KEY_BIDDER}

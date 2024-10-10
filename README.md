@@ -3,7 +3,7 @@ This repository contains the Docker setup for running a MEV-Commit bidder node s
 
 # Prerequisites
 - Docker and Docker Compose installed on your machine
-- A valid private key. Use the [faucet](https://faucet.testnet.mev-commit.xyz/) to receive funds.
+- A funded mev-commit address and valid private key - [faucet](https://faucet.testnet.mev-commit.xyz/) to receive funds.
 
 # Setup Instructions
 1. Clone the repository
@@ -20,13 +20,9 @@ docker-compose up --build
 - Build the Docker image based on Ubuntu 20.04
 - Install necessary dependencies (curl, jq, etc.)
 - Download and install the latest mev-commit binary from the official repository
-- Start the mev-commit-bidder service on port 13523
 
 ## Port Configuration
 The mev-commit-bidder service exposes the following port:
-
-13523: The port used for external communication with the MEV-Commit network.
-Make sure this port is open and accessible if running on a remote server.
 
 ## Customization
 Environment Variables
