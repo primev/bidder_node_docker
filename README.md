@@ -21,9 +21,6 @@ docker-compose up --build
 - Install necessary dependencies (curl, jq, etc.)
 - Download and install the latest mev-commit binary from the official repository
 
-## Port Configuration
-The mev-commit-bidder service exposes the following port:
-
 ## Customization
 Environment Variables
 You can customize the following environment variables in the .env file or Docker Compose:
