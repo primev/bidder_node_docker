@@ -8,7 +8,7 @@ BOOTNODE="/dnsaddr/bootnode.${DOMAIN}"
 CONTRACTS_URL="https://contracts.${DOMAIN}"
 
 # Fetch contracts.json and export necessary environment variables
-contracts_json=$(curl -sL "${CONTRACTS_URL}")
+contracts_json=$(curl -sL ${CONTRACTS_URL})
 if ! echo "${contracts_json}" | jq . > /dev/null 2>&1; then
     echo "Failed to fetch contracts from ${CONTRACTS_URL}"
     exit 1
@@ -20,14 +20,17 @@ export MEV_COMMIT_PRECONF_ADDR=$(echo "${contracts_json}" | jq -r '.PreconfManag
 
 # Check if PRIVATE_KEY_BIDDER is set
 if [ -z "${PRIVATE_KEY_BIDDER}" ]; then
-    echo "PRIVATE_KEY_BIDDER environment variable is not set"
-    exit 1
+  echo "PRIVATE_KEY_BIDDER environment variable is not set"
+  exit 1
 else
-    echo "PRIVATE_KEY_BIDDER is set."
+  echo "PRIVATE_KEY_BIDDER is set."
+  # Write the private key to key
+  echo "${PRIVATE_KEY_BIDDER}" > "${ROOT_PATH}/key"
+  # Secure the key file by restricting permissions
+  chmod 600 "${ROOT_PATH}/key"
+  # Export MEV_COMMIT_PRIVKEY_FILE to point to the key file
+  export MEV_COMMIT_PRIVKEY_FILE="${ROOT_PATH}/key"
 fi
-
-# Export the private key so that mev-commit can access it
-export MEV_COMMIT_PRIVATE_KEY="${PRIVATE_KEY_BIDDER}"
 
 # Define flags for mev-commit
 FLAGS=(
@@ -35,10 +38,12 @@ FLAGS=(
     --peer-type "bidder"
     --bootnodes "${BOOTNODE}"
     --log-tags "service:docker-mev-commit-bidder"
+    # Optionally, you can specify the priv-key-file flag here
+    # --priv-key-file "${ROOT_PATH}/key"
 )
 
 # Start mev-commit in the background
-"${BINARY_PATH}" "${FLAGS[@]}" &
+${BINARY_PATH} "${FLAGS[@]}" &
 
 PID=$!
 
@@ -51,29 +56,25 @@ wait_for_health() {
     echo "mev-commit is ready."
 }
 
-# Function to send auto deposit request until successful
-send_auto_deposit_until_successful() {
-    while true; do
-        echo "Sending auto deposit request..."
-        response=$(curl --silent --show-error --fail --output /dev/null --write-out "%{http_code}" \
-            --request POST "http://127.0.0.1:13523/v1/bidder/auto_deposit/1000000000000000000")
-
-        if [ "${response}" -eq 200 ]; then
-            echo "Auto deposit request sent successfully"
-            break  # Exit the loop when successful
-        else
-            echo "Failed to send auto deposit request, status code: ${response}"
-            echo "Retrying auto deposit in 30 seconds..."
-            sleep 30  # Wait for 30 seconds before the next attempt
-        fi
-    done
+# Function to send auto deposit request
+send_auto_deposit() {
+    echo "Sending auto deposit request..."
+    response=$(curl --silent --show-error --output /dev/null --write-out "%{http_code}" --request POST "http://127.0.0.1:13523/v1/bidder/auto_deposit/1000000000000000000")
+    if [ "${response}" -ne 200 ]; then
+        echo "Failed to send auto deposit request, status code: ${response}"
+    else
+        echo "Auto deposit request sent successfully"
+    fi
 }
 
 # Wait for mev-commit to be ready
 wait_for_health
 
-# Start auto-deposit process
-send_auto_deposit_until_successful &
+# Run auto-deposit continuously
+while true; do
+    send_auto_deposit
+    sleep 30  # Wait for 30 seconds before the next attempt
+done &
 
 # Trap to handle script termination and clean up background jobs
 trap "echo 'Received termination signal. Exiting...'; kill ${PID}; kill 0; exit 0" SIGINT SIGTERM
