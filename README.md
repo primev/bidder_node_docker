@@ -31,6 +31,40 @@ You can customize the following environment variables in the .env file or Docker
 ## Modifying the Entry Point
 The container uses the entrypoint.sh script to start the service. If you need to modify the startup sequence, you can edit this script and rebuild the container.
 
+# Networking with Other Repositories
+This Docker container is designed to work together with other services (e.g., bidding scripts or Geth containers) by using a shared Docker network. This allows multiple containers to communicate with each other seamlessly.
+
+### Why a Docker Network Is Needed
+To allow the mev-commit-bidder service to interact with other containers (like a searcher bot) that are defined in different repositories, we use a Docker network. This network allows services to discover and communicate with each other via container names instead of hardcoded IP addresses.
+
+### Creating the Network
+Before running the containers, ensure that the shared network is created. This only needs to be done once:
+
+```bash
+docker network create app-network
+```
+
+The app-network allows the bidder node and other services (e.g., a bid sender) to communicate over the same network.
+
+### Using the Network with Other Repositories
+If you have other repositories with Docker services that need to communicate with this bidder node, make sure they also reference the same app-network. Here's an example of how to include this network in another repository’s docker-compose.yml:
+
+```yaml
+version: '3'
+services:
+  bid-sender:
+    image: your-bot-image
+    networks:
+      - app-network
+    environment:
+      - RPC_ENDPOINT=http://mev-commit-bidder:13523
+networks:
+  app-network:
+    external: true
+```
+This ensures that the containers across different repositories can communicate with each other using container names, like mev-commit-bidder, for service discovery.
+
+
 # Additional Notes
 The mev-commit binary is downloaded during the build process from the official GitHub repository.
 The containers are configured to automatically restart on failure using Docker Compose.
