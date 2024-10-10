@@ -1,0 +1,10 @@
+version: '3'
+
+services:
+  mev-commit-bidder:
+    build: .
+    ports:
+      - "13523:13523"
+    environment:
+      DOMAIN: testnet.mev-commit.xyz
+      PRIVATE_KEY_BIDDER: ${PRIVATE_KEY_BIDDER} # public key 0xe51EF1836Dbef052BfFd2eB3Fe1314365d23129d
