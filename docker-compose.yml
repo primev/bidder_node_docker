@@ -10,9 +10,7 @@ services:
     networks:
       - app-network  # External network for communication
     ports:
-      - "13523:13523"  # Expose port if necessary for external access
-    volumes:
-      - ./mev-commit:/app/mev-commit  # Mount volume for persistent data
+      - "13524:13524"
 
 networks:
   app-network:
