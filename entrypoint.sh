@@ -38,8 +38,6 @@ FLAGS=(
     --peer-type "bidder"
     --bootnodes "${BOOTNODE}"
     --log-tags "service:docker-mev-commit-bidder"
-    # Optionally, you can specify the priv-key-file flag here
-    # --priv-key-file "${ROOT_PATH}/key"
 )
 
 # Start mev-commit in the background
@@ -70,11 +68,8 @@ send_auto_deposit() {
 # Wait for mev-commit to be ready
 wait_for_health
 
-# Run auto-deposit continuously
-while true; do
-    send_auto_deposit
-    sleep 30  # Wait for 30 seconds before the next attempt
-done &
+# Send auto deposit request once
+send_auto_deposit
 
 # Trap to handle script termination and clean up background jobs
 trap "echo 'Received termination signal. Exiting...'; kill ${PID}; kill 0; exit 0" SIGINT SIGTERM
