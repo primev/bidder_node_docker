@@ -28,7 +28,7 @@ RUN VERSION=$(curl -sIL -o /dev/null -w %{url_effective} https://github.com/prim
     && tar -xzf "${FILE}" -C "${ROOT_PATH}" \
     && chmod +x ${BINARY_PATH}
 
-# Expose the necessary port
+# Expose http port. Not sure if actuallly needed
 EXPOSE 13523
 
 # Copy the entrypoint script into the image

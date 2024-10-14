@@ -3,14 +3,13 @@ version: '3'
 services:
   mev-commit-bidder:
     build: .
-    container_name: mev-commit-bidder
     environment:
       DOMAIN: testnet.mev-commit.xyz
       PRIVATE_KEY_BIDDER: ${PRIVATE_KEY_BIDDER}
     networks:
-      - app-network  # External network for communication
+      - app-network
     ports:
-      - "13524:13524"
+      - "13524:13524" # expose this port to use gRPC mev-commit connection
 
 networks:
   app-network:
