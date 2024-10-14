@@ -53,11 +53,10 @@ If you have other repositories with Docker services that need to communicate wit
 version: '3'
 services:
   bid-sender:
-    image: your-bot-image
     networks:
       - app-network
     environment:
-      - RPC_ENDPOINT=http://mev-commit-bidder:13523
+      - RPC_ENDPOINT=http://mev-commit-bidder:13524
 networks:
   app-network:
     external: true
@@ -65,18 +64,14 @@ networks:
 This ensures that the containers across different repositories can communicate with each other using container names, like mev-commit-bidder, for service discovery.
 
 
-# Additional Notes
-The mev-commit binary is downloaded during the build process from the official GitHub repository.
-The containers are configured to automatically restart on failure using Docker Compose.
-
-## Troubleshooting
+# Troubleshooting
 Service not starting: Check the logs using:
 
 ```bash
 docker-compose logs mev-commit-bidder
 ```
 
-### Logs
+## Logs
 To monitor the logs of the running bidder service:
 
 ```bash
