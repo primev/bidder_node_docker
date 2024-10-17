@@ -33,6 +33,25 @@ services:
     volumes:
       - grafana-data:/var/lib/grafana
 
+  datadog-agent:
+    image: datadog/agent:latest
+    container_name: datadog-agent
+    environment:
+      - DD_API_KEY=${DD_API_KEY}
+      - DD_TAGS=env:bidder-bot
+      - DD_SITE=datadoghq.com
+      - DD_LOGS_ENABLED=true
+      - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
+      - DD_CONTAINER_EXCLUDE=image:datadog/agent:*
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc/:/host/proc/:ro
+      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
+    depends_on:
+      - mev-commit-bidder
+    networks:
+      - app-network 
+
 networks:
   app-network:
     external: true
