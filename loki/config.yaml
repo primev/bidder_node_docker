@@ -1,0 +1,58 @@
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9095
+  log_level: debug # Change to info if not debugging
+
+ingester:
+  lifecycler:
+    ring:
+      kvstore:
+        store: inmemory
+      heartbeat_timeout: 1m
+      replication_factor: 1
+  chunk_idle_period: 5m
+  chunk_retain_period: 30s
+  max_chunk_age: 1h
+  chunk_target_size: 1048576
+  wal:
+    enabled: true
+    dir: /loki/wal
+
+schema_config:
+  configs:
+    - from: "2024-10-17"
+      index:
+        prefix: index_
+        period: 24h
+      object_store: filesystem
+      schema: v12
+      store: tsdb
+
+storage_config:
+  # TSDB Shipper Configuration
+  tsdb_shipper:
+    active_index_directory: /data/tsdb-index
+    cache_location: /data/tsdb-cache
+    index_gateway_client:
+      server_address: http://localhost:9095 # Pointing to the local Index Gateway
+
+  # Filesystem Configuration for Chunks
+  filesystem:
+    directory: /loki/chunks
+
+limits_config:
+  enforce_metric_name: false
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h
+
+table_manager:
+  retention_deletes_enabled: true
+  retention_period: 168h # 7 days
+
+query_scheduler:
+  max_outstanding_requests_per_tenant: 32768
+
+querier:
+  max_concurrent: 16

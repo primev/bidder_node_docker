@@ -5,3 +5,7 @@ scrape_configs:
     metrics_path: /metrics
     static_configs:
       - targets: ['mev-commit-bidder:13523']
+  - job_name: 'loki'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['loki:3100']

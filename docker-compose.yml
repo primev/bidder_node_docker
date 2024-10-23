@@ -1,4 +1,4 @@
-version: '3'
+version: '3.8'
 
 services:
   mev-commit-bidder:
@@ -11,14 +11,22 @@ services:
     ports:
       - "13524:13524" 
       - "13523:13523"
+    labels:
+      - "loki.enable=true" # Opt-in label for logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   prometheus:
     image: prom/prometheus:latest
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus-data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--log.level=error'
     networks:
       - app-network
     ports:
@@ -32,6 +40,44 @@ services:
       - "3000:3000"
     volumes:
       - grafana-data:/var/lib/grafana
+      - ./config/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_LOG_LEVEL=error  
+    depends_on:
+      - loki
+
+  loki:
+    build:
+      context: ./loki
+      dockerfile: Dockerfile
+    image: custom-loki:latest
+    ports:
+      - "3100:3100"
+    volumes:
+      - loki-index:/loki/index
+      - loki-cache:/loki/cache
+      - loki-chunks:/loki/chunks
+      - loki-wal:/loki/wal
+      - ./loki/config.yaml:/etc/loki/config.yaml
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3100/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  promtail:
+    image: grafana/promtail:2.7.1
+    volumes:
+      - /var/log:/var/log
+      - ./config/promtail.yml:/etc/promtail/config.yml
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - app-network
+    depends_on:
+      - loki
 
 networks:
   app-network:
@@ -40,3 +86,7 @@ networks:
 volumes:
   grafana-data:
   prometheus-data:
+  loki-index:
+  loki-cache:
+  loki-chunks:
+  loki-wal:
