@@ -23,6 +23,7 @@ fi
 export MEV_COMMIT_BLOCK_TRACKER_ADDR=$(echo "${contracts_json}" | jq -r '.BlockTracker')
 export MEV_COMMIT_BIDDER_REGISTRY_ADDR=$(echo "${contracts_json}" | jq -r '.BidderRegistry')
 export MEV_COMMIT_PRECONF_ADDR=$(echo "${contracts_json}" | jq -r '.PreconfManager')
+export MEV_COMMIT_LOG_FMT="${MEV_COMMIT_LOG_FMT:-json}"
 
 # Check if PRIVATE_KEY_BIDDER is set
 if [ -z "${PRIVATE_KEY_BIDDER}" ]; then
