@@ -26,7 +26,8 @@ RUN VERSION=$(curl -sIL -o /dev/null -w %{url_effective} https://github.com/prim
     && echo "Downloading $FILE" \
     && curl -sL "${ARTIFACTS_URL}/${FILE}" -o "${FILE}" \
     && tar -xzf "${FILE}" -C "${ROOT_PATH}" \
-    && chmod +x ${BINARY_PATH}
+    && chmod +x ${BINARY_PATH} \
+    && echo "export MEV_COMMIT_VERSION=${VERSION}" >> /etc/environment
 
 # Expose http port. Not sure if actuallly needed
 EXPOSE 13523

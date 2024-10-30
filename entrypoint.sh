@@ -2,6 +2,12 @@
 
 set -e
 
+# Load the mev-commit version from environment
+source /etc/environment
+
+# Print the mev-commit version
+echo "Running mev-commit version: ${MEV_COMMIT_VERSION}"
+
 # Set variables based on DOMAIN
 RPC_URL="wss://chainrpc-wss.${DOMAIN}"
 BOOTNODE="/dnsaddr/bootnode.${DOMAIN}"
