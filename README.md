@@ -29,7 +29,9 @@ You can customize the following environment variables in the .env file or Docker
 - DOMAIN: The MEV-Commit testnet domain, default is testnet.mev-commit.xyz.
 
 ## Modifying the Entry Point
-The container uses the entrypoint.sh script to start the service. If you need to modify the startup sequence, you can edit this script and rebuild the container.
+The container uses the entrypoint.sh script to start the service. If you need to modify the startup sequence, you can edit this script and rebuild the container. Some reasons to modify the script include:
+* build the bidder node from a previous mev-commit version
+* change the autodeposit minimum deposit amount (1 ETH)
 
 # Networking with Other Repositories
 This Docker container is designed to work together with other services (e.g., bidding scripts or Geth containers) by using a shared Docker network. This allows multiple containers to communicate with each other seamlessly.
