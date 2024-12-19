@@ -12,9 +12,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Set default environment variables
 ENV ROOT_PATH=/opt/mev-commit
 ENV BINARY_PATH=${ROOT_PATH}/mev-commit
-ENV DOMAIN=testnet.mev-commit.xyz
+ENV DOMAIN=${DOMAIN}
 ENV ARTIFACTS_URL=https://github.com/primev/mev-commit/releases/latest/download
-
+ENV VERSION=${MEV_COMMIT_VERSION}
+ENV ARTIFACTS_BASE_URL=https://github.com/primev/mev-commit/releases
+ENV AUTO_DEPOSIT_VALUE=${AUTO_DEPOSIT_VALUE}
 # Create the directory for mev-commit
 RUN mkdir -p ${ROOT_PATH}
 WORKDIR ${ROOT_PATH}

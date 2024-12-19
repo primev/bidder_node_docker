@@ -4,8 +4,9 @@ services:
   mev-commit-bidder:
     build: .
     environment:
-      DOMAIN: testnet.mev-commit.xyz
+      DOMAIN: ${DOMAIN}
       PRIVATE_KEY_BIDDER: ${PRIVATE_KEY_BIDDER}
+      AUTO_DEPOSIT_VALUE: ${AUTO_DEPOSIT_VALUE}
     networks:
       - app-network
     ports:

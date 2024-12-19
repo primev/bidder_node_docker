@@ -45,6 +45,8 @@ FLAGS=(
     --peer-type "bidder"
     --bootnodes "${BOOTNODE}"
     --log-tags "service:docker-mev-commit-bidder"
+    --bidder-bid-timeout "15s"  # Override timeout here
+
 )
 
 # Start mev-commit in the background
@@ -64,7 +66,7 @@ wait_for_health() {
 # Function to send auto deposit request
 send_auto_deposit() {
     echo "Sending auto deposit request..."
-    response=$(curl --silent --show-error --output /dev/null --write-out "%{http_code}" --request POST "http://127.0.0.1:13523/v1/bidder/auto_deposit/1000000000000000000")
+    response=$(curl --silent --show-error --output /dev/null --write-out "%{http_code}" --request POST "http://127.0.0.1:13523/v1/bidder/auto_deposit/${AUTO_DEPOSIT_VALUE}")
     if [ "${response}" -ne 200 ]; then
         echo "Failed to send auto deposit request, status code: ${response}"
     else
