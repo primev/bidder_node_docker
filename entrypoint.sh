@@ -2,116 +2,248 @@
 
 set -e
 
-# Load the mev-commit version from environment
-source /etc/environment
+###############################################################################
+# 1) Source .env if it exists
+###############################################################################
+load_env_file() {
+  local env_file="$1"
+  if [ -f "$env_file" ]; then
+    echo "Loading environment variables from $env_file"
+    # shellcheck disable=SC1090,SC1091
+    set -o allexport
+    source "$env_file"
+    set +o allexport
+  fi
+}
 
-# Configuration Variables
+# Load .env from same directory as the script
+load_env_file "$(dirname "$(realpath "$0")")/.env"
+
+###############################################################################
+# 2) Set defaults
+###############################################################################
 APP_NAME="mev-commit"
 ENVIRONMENT="${ENVIRONMENT:-production}"
-VERSION="${MEV_COMMIT_VERSION:-unknown}"
-LOG_FORMAT="${MEV_COMMIT_LOG_FMT:-json}"
-LOG_LEVEL_INFO="INFO"
-LOG_LEVEL_ERROR="ERROR"
+MEV_COMMIT_VERSION="${MEV_COMMIT_VERSION:-unknown}"
+DOMAIN="${DOMAIN:-testnet.mev-commit.xyz}"
+AUTO_DEPOSIT_VALUE="${AUTO_DEPOSIT_VALUE:-300000000000000000}"  # Default 0.3 ETH
+BINARY_PATH="${BINARY_PATH:-/usr/local/bin/mev-commit}"
+ARTIFACTS_BASE_URL="https://github.com/primev/mev-commit/releases"
+RPC_URL="${RPC_URL:-wss://chainrpc-wss.${DOMAIN}}"
 
-# Log Functions
-log_info() {
-  echo '{
-    "timestamp": "'"$(date --iso-8601=seconds)"'",
-    "level": "'"$LOG_LEVEL_INFO"'",
-    "app": "'"$APP_NAME"'",
-    "environment": "'"$ENVIRONMENT"'",
-    "version": "'"$VERSION"'",
-    "message": "'"$1"'"
-  }'
-}
+# Logging
+LOG_FMT="${LOG_FMT:-json}"
+LOG_LEVEL="${LOG_LEVEL:-info}"
 
-log_error() {
-  echo '{
-    "timestamp": "'"$(date --iso-8601=seconds)"'",
-    "level": "'"$LOG_LEVEL_ERROR"'",
-    "app": "'"$APP_NAME"'",
-    "environment": "'"$ENVIRONMENT"'",
-    "version": "'"$VERSION"'",
-    "message": "'"$1"'"
-  }' >&2
-}
+# For mev-commit >= v0.8.0, we must pass a file to --priv-key-file.
+# We'll use an in-memory file descriptor so the key never touches disk.
+PRIV_KEY_FD="/proc/self/fd/3"
 
-# Print the mev-commit version
-log_info "Running mev-commit version: ${MEV_COMMIT_VERSION}"
+echo "Using RPC_URL=${RPC_URL}"
 
-# Set variables based on DOMAIN
-RPC_URL="wss://chainrpc-wss.${DOMAIN}"
+###############################################################################
+# 3) (Optional) Download mev-commit if needed
+###############################################################################
+INSTALLED_VERSION=""
+if command -v "${BINARY_PATH}" &> /dev/null; then
+  INSTALLED_VERSION=$("${BINARY_PATH}" --version 2>/dev/null | awk '{print $3}')
+  echo "Installed mev-commit version: ${INSTALLED_VERSION}"
+fi
+
+if [ "${MEV_COMMIT_VERSION}" = "unknown" ]; then
+  LATEST_VERSION=$(curl -sIL -o /dev/null -w %{url_effective} \
+    https://github.com/primev/mev-commit/releases/latest \
+    | sed 's:.*/::' | sed 's/^v//')
+  echo "Latest mev-commit version: ${LATEST_VERSION}"
+else
+  LATEST_VERSION=${MEV_COMMIT_VERSION}
+  echo "Using mev-commit version: ${LATEST_VERSION}"
+fi
+
+# Download if not installed or if the version is out of date
+if [ -z "${INSTALLED_VERSION}" ] || [ "${INSTALLED_VERSION}" != "${LATEST_VERSION}" ]; then
+  echo "Downloading mev-commit ${LATEST_VERSION}..."
+  FILE="mev-commit_${LATEST_VERSION}_Linux_x86_64.tar.gz"
+  DOWNLOAD_URL="${ARTIFACTS_BASE_URL}/download/v${LATEST_VERSION}/${FILE}"
+  TEMP_DIR=$(mktemp -d)
+
+  curl -sL "${DOWNLOAD_URL}" -o "${TEMP_DIR}/${FILE}"
+  echo "Extracting ${FILE} to ${TEMP_DIR}..."
+  tar -xzf "${TEMP_DIR}/${FILE}" -C "${TEMP_DIR}"
+
+  echo "Installing mev-commit to ${BINARY_PATH}..."
+  sudo mv "${TEMP_DIR}/mev-commit" "${BINARY_PATH}"
+  sudo chmod +x "${BINARY_PATH}"
+
+  rm -rf "${TEMP_DIR}"
+  echo "mev-commit downloaded and installed to ${BINARY_PATH}"
+else
+  echo "Using existing mev-commit binary found at ${BINARY_PATH}"
+fi
+
+###############################################################################
+# 4) Print usage/info
+###############################################################################
+echo "**********************************************************************"
+echo "  Starting up the mev-commit Bidder Node (v0.8.0)                     "
+echo "**********************************************************************"
+echo ""
+echo "Configuration variables (current defaults):"
+echo "  PRIVATE_KEY_BIDDER (required)    - your Ethereum private key"
+echo "  DOMAIN: ${DOMAIN}"
+echo "  AUTO_DEPOSIT_VALUE: ${AUTO_DEPOSIT_VALUE} (Wei)"
+echo "  ENVIRONMENT: ${ENVIRONMENT}"
+echo "  MEV_COMMIT_VERSION: ${MEV_COMMIT_VERSION}"
+echo "  BINARY_PATH: ${BINARY_PATH}"
+echo "  RPC_URL: ${RPC_URL}"
+echo ""
+echo "You can set these in a .env file or pass CLI args. Example usage:"
+echo "  ./entrypoint.sh --private-key <HEXKEY> --auto-deposit 1000000000000000000"
+echo ""
+
+###############################################################################
+# 5) Parse CLI arguments
+###############################################################################
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --domain)
+      DOMAIN="$2"
+      shift 2
+      ;;
+    --private-key)
+      PRIVATE_KEY_BIDDER="$2"
+      shift 2
+      ;;
+    --auto-deposit)
+      AUTO_DEPOSIT_VALUE="$2"
+      shift 2
+      ;;
+    --binary-path)
+      BINARY_PATH="$2"
+      shift 2
+      ;;
+    --environment)
+      ENVIRONMENT="$2"
+      shift 2
+      ;;
+    --mev-commit-version)
+      MEV_COMMIT_VERSION="$2"
+      shift 2
+      ;;
+    --rpc-url)
+      RPC_URL="$2"
+      shift 2
+      ;;
+    --log-fmt)
+      LOG_FMT="$2"
+      shift 2
+      ;;
+    --log-level)
+      LOG_LEVEL="$2"
+      shift 2
+      ;;
+    *)
+      echo "Unknown parameter: $1"
+      exit 1
+      ;;
+  esac
+done
+
+###############################################################################
+# 6) Ensure private key is set (prompt only if missing)
+###############################################################################
+if [ -z "${PRIVATE_KEY_BIDDER}" ]; then
+  echo "No PRIVATE_KEY_BIDDER environment variable found."
+  read -r -s -p "Enter your private key (hex, no 0x): " PRIVATE_KEY_BIDDER
+  echo ""
+fi
+
+if [ -z "${PRIVATE_KEY_BIDDER}" ]; then
+  echo "Error: No private key provided!"
+  exit 1
+fi
+
+###############################################################################
+# 7) Decide on auto-deposit (skip prompt if AUTO_DEPOSIT_VALUE is already set)
+###############################################################################
+# If user didn't override AUTO_DEPOSIT_VALUE, ask if they want the default
+if [ "${AUTO_DEPOSIT_VALUE}" = "300000000000000000" ]; then
+  # It's still the default. Confirm if user wants to override
+  echo "Current auto-deposit: ${AUTO_DEPOSIT_VALUE} (default 0.3 ETH)."
+  read -r -p "Use the default auto-deposit value? (y/n): " USE_DEFAULT_DEPOSIT
+  if [[ ! "${USE_DEFAULT_DEPOSIT,,}" =~ ^(y|yes)$ ]]; then
+    read -r -p "Enter custom auto-deposit value (in Wei): " AUTO_DEPOSIT_VALUE
+  fi
+else
+  # If the user specified a custom value in ENV or CLI, skip the prompt
+  echo "Using auto-deposit value from environment: ${AUTO_DEPOSIT_VALUE}"
+fi
+
+# For a bidder node, we enable auto-deposit by default
+AUTO_DEPOSIT_ENABLED="true"
+
+###############################################################################
+# 8) Fetch contract addresses from ${CONTRACTS_URL}
+###############################################################################
 BOOTNODE="/dnsaddr/bootnode.${DOMAIN}"
 CONTRACTS_URL="https://contracts.${DOMAIN}"
 
-# Fetch contracts.json and export necessary environment variables
 contracts_json=$(curl -sL "${CONTRACTS_URL}")
 if ! echo "${contracts_json}" | jq . > /dev/null 2>&1; then
-    log_error "Failed to fetch contracts from ${CONTRACTS_URL}"
-    exit 1
-fi
-
-export MEV_COMMIT_BLOCK_TRACKER_ADDR=$(echo "${contracts_json}" | jq -r '.BlockTracker')
-export MEV_COMMIT_BIDDER_REGISTRY_ADDR=$(echo "${contracts_json}" | jq -r '.BidderRegistry')
-export MEV_COMMIT_PRECONF_ADDR=$(echo "${contracts_json}" | jq -r '.PreconfManager')
-export MEV_COMMIT_LOG_FMT="${MEV_COMMIT_LOG_FMT:-json}"
-
-# Check if PRIVATE_KEY_BIDDER is set
-if [ -z "${PRIVATE_KEY_BIDDER}" ]; then
-  log_error "PRIVATE_KEY_BIDDER environment variable is not set"
+  echo "Failed to fetch contracts from ${CONTRACTS_URL}"
   exit 1
-else
-  log_info "PRIVATE_KEY_BIDDER is set."
-  # Write the private key to key
-  echo "${PRIVATE_KEY_BIDDER}" > "${ROOT_PATH}/key"
-  # Secure the key file by restricting permissions
-  chmod 600 "${ROOT_PATH}/key"
-  # Export MEV_COMMIT_PRIVKEY_FILE to point to the key file
-  export MEV_COMMIT_PRIVKEY_FILE="${ROOT_PATH}/key"
 fi
 
-# Define flags for mev-commit
+BIDDER_REGISTRY_ADDR=$(echo "${contracts_json}" | jq -r '.BidderRegistry')
+PROVIDER_REGISTRY_ADDR=$(echo "${contracts_json}" | jq -r '.ProviderRegistry')
+BLOCK_TRACKER_ADDR=$(echo "${contracts_json}" | jq -r '.BlockTracker')
+PRECONF_ADDR=$(echo "${contracts_json}" | jq -r '.PreconfManager')
+
+###############################################################################
+# 9) Build CLI flags for mev-commit 0.8.0
+###############################################################################
 FLAGS=(
-    --settlement-ws-rpc-endpoint "${RPC_URL}"
-    --peer-type "bidder"
-    --bootnodes "${BOOTNODE}"
-    --log-tags "service:docker-mev-commit-bidder"
-    --bidder-bid-timeout "15s"  # Override timeout here
+  --peer-type "bidder"
+
+  # Settlement RPC (WebSocket)
+  --settlement-ws-rpc-endpoint "${RPC_URL}"
+
+  # Logging
+  --log-fmt "${LOG_FMT}"
+  --log-level "${LOG_LEVEL}"
+
+  # Bootnodes
+  --bootnodes "${BOOTNODE}"
+
+  # Key file is read from an in-memory FD
+  --priv-key-file "${PRIV_KEY_FD}"
+
+  # Bidder-specific
+  --bidder-bid-timeout "15s"
+
+  # Contracts
+  --bidder-registry-contract "${BIDDER_REGISTRY_ADDR}"
+  --provider-registry-contract "${PROVIDER_REGISTRY_ADDR}"
+  --block-tracker-contract "${BLOCK_TRACKER_ADDR}"
+  --preconf-contract "${PRECONF_ADDR}"
+
+  # Auto-deposit
+  --autodeposit-enabled="${AUTO_DEPOSIT_ENABLED}"
+  --autodeposit-amount "${AUTO_DEPOSIT_VALUE}"
 )
 
-# Start mev-commit in the background
-${BINARY_PATH} "${FLAGS[@]}" &
+###############################################################################
+# 10) Start mev-commit without writing key to disk
+###############################################################################
+echo ""
+echo "Starting mev-commit with the following flags:"
+for f in "${FLAGS[@]}"; do
+  echo "  $f"
+done
+echo ""
 
-PID=$!
+# We open a file descriptor (FD #3) containing the private key in memory.
+# mev-commit reads that FD as if it were a file, but nothing is written to disk.
+exec 3<<< "${PRIVATE_KEY_BIDDER}"
 
-# Function to wait for mev-commit to be ready
-wait_for_health() {
-    log_info "Waiting for mev-commit to be ready..."
-    until curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:13523/health | grep -q 200; do
-        sleep 1
-    done
-    log_info "mev-commit is ready."
-}
-
-# Function to send auto deposit request
-send_auto_deposit() {
-    log_info "Sending auto deposit request..."
-    response=$(curl --silent --show-error --output /dev/null --write-out "%{http_code}" --request POST "http://127.0.0.1:13523/v1/bidder/auto_deposit/${AUTO_DEPOSIT_VALUE}")
-    if [ "${response}" -ne 200 ]; then
-        log_error "Failed to send auto deposit request, status code: ${response}"
-    else
-        log_info "Auto deposit request sent successfully"
-    fi
-}
-
-# Wait for mev-commit to be ready
-wait_for_health
-
-# Send auto deposit request once
-send_auto_deposit
-
-# Trap to handle script termination and clean up background jobs
-trap "log_info 'Received termination signal. Exiting...'; kill ${PID}; kill 0; exit 0" SIGINT SIGTERM
-
-# Wait for mev-commit process to exit
-wait ${PID}
+exec "${BINARY_PATH}" "${FLAGS[@]}"
