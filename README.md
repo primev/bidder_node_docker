@@ -79,3 +79,6 @@ To monitor the logs of the running bidder service:
 ```bash
 docker-compose logs -f mev-commit-bidder
 ```
+
+## Run standalone script
+The script can be run without the docker by simply executing `./entrypoint.sh`. The CLI is interactive so that it will prompt you for a private key if one isn't found in the .env file. 
