@@ -28,18 +28,13 @@ You can customize the following environment variables in the .env file or Docker
 - PRIVATE_KEY_BIDDER: Your private key for authenticating the node with the testnet.
 - DOMAIN: The MEV-Commit testnet domain, default is testnet.mev-commit.xyz.
 
-## Modifying the Entry Point
-The container uses the entrypoint.sh script to start the service. If you need to modify the startup sequence, you can edit this script and rebuild the container. Some reasons to modify the script include:
-* build the bidder node from a previous mev-commit version
-* change the autodeposit minimum deposit amount (1 ETH)
+## Running entrypoint directly
+The entrypoint script can be run directly with `./entrypoint.sh` as a CLI script. It will prompt for a private key to use if one isn't provided as an `.env` variable.
 
 # Networking with Other Repositories
-This Docker container is designed to work together with other services (e.g., bidding scripts or Geth containers) by using a shared Docker network. This allows multiple containers to communicate with each other seamlessly.
+To allow the mev-commit-bidder service to interact with other containers (like a l1 transaction sender bot) that are defined in different repositories, we use a Docker network. This network allows services to discover and communicate with each other via container names instead of hardcoded IP addresses.
 
-### Why a Docker Network Is Needed
-To allow the mev-commit-bidder service to interact with other containers (like a searcher bot) that are defined in different repositories, we use a Docker network. This network allows services to discover and communicate with each other via container names instead of hardcoded IP addresses.
-
-### Creating the Network
+## Creating the Network
 Before running the containers, ensure that the shared network is created. This only needs to be done once:
 
 ```bash
@@ -67,18 +62,8 @@ This ensures that the containers across different repositories can communicate w
 
 
 # Troubleshooting
-Service not starting: Check the logs using:
-
-```bash
-docker-compose logs mev-commit-bidder
-```
-
-## Logs
-To monitor the logs of the running bidder service:
+Service not starting: Check the logs:
 
 ```bash
 docker-compose logs -f mev-commit-bidder
 ```
-
-## Run standalone script
-The script can be run without the docker by simply executing `./entrypoint.sh`. The CLI is interactive so that it will prompt you for a private key if one isn't found in the .env file. 
