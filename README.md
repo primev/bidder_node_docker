@@ -1,69 +1,76 @@
-# MEV-Commit Bidder Docker Setup
-This repository contains the Docker setup for running a MEV-Commit bidder node service in one container. The bidder node connects to the mev-commmit testnet and lets a user submit bids on the network.
+# mev-commit
 
-# Prerequisites
-- Docker and Docker Compose installed on your machine
-- A funded mev-commit address and valid private key - [faucet](https://faucet.testnet.mev-commit.xyz/) to receive funds.
+[![CI](https://github.com/primev/mev-commit/actions/workflows/ci.yml/badge.svg)](https://github.com/primev/mev-commit/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-BSL%201.1-blue.svg)](LICENSE.txt)
 
-# Setup Instructions
-1. Clone the repository
-2. Prepare Environment Variables
-Create a .env file in the root of the repository and define the PRIVATE_KEY_BIDDER variable
 
-3. Build and Run the Docker Containers
-Run the following command to build the Docker image and start the bidder node service:
+Is P2P software that creates a network of execution providers and bidders.
+Bidders can broadcast bids to providers and receive commitments from them.
+A high throughput POA EVM chain settles the bids at the end of a block slot.
 
-```bash 
-docker-compose up --build
+## Documentation
+
+For detailed documentation, visit the [mev-commit docs](https://docs.primev.xyz/).
+
+## Main Components
+  - [mev-commit client](p2p)
+  - [mev-commit-oracle](oracle)
+  - [mev-commit-bridge](bridge)
+  - [mev-commit-geth](external/geth)
+  - [contracts](contracts)
+
+## Getting Started
+
+The mev-commit repository is a mono-repository that also use submodules for external dependencies.
+To clone the repository and its submodules, run the following command:
+
+```shell
+git clone --recurse-submodules <git@github.com:primev/mev-commit.git|https://github.com/primev/mev-commit.git>
 ```
 
-- Build the Docker image based on Ubuntu 20.04
-- Install necessary dependencies (curl, jq, etc.)
-- Download and install the latest mev-commit binary from the official repository
+If you have already cloned the repository and need to update the submodules, run the following command:
 
-## Customization
-Environment Variables
-You can customize the following environment variables in the .env file or Docker Compose:
-
-- PRIVATE_KEY_BIDDER: Your private key for authenticating the node with the testnet.
-- DOMAIN: The MEV-Commit testnet domain, default is testnet.mev-commit.xyz.
-
-## Running entrypoint directly
-The entrypoint script can be run directly with `./entrypoint.sh` as a CLI script. It will prompt for a private key to use if one isn't provided as an `.env` variable.
-
-# Networking with Other Repositories
-To allow the mev-commit-bidder service to interact with other containers (like a l1 transaction sender bot) that are defined in different repositories, we use a Docker network. This network allows services to discover and communicate with each other via container names instead of hardcoded IP addresses.
-
-## Creating the Network
-Before running the containers, ensure that the shared network is created. This only needs to be done once:
-
-```bash
-docker network create app-network
+```shell
+git submodule update --init --recursive
 ```
 
-The app-network allows the bidder node and other services (e.g., a bid sender) to communicate over the same network.
+## Development
 
-### Using the Network with Other Repositories
-If you have other repositories with Docker services that need to communicate with this bidder node, make sure they also reference the same app-network. Here's an example of how to include this network in another repository’s docker-compose.yml:
+When working with submodules, you can use the `git submodule` command to list available submodules.
+To make changes to a submodule, navigate to the submodule directory using the `cd` command.
+Before making any changes, ensure that the submodule is up-to-date.
+For example, to navigate to the `external/geth` submodule, run the following command:
 
-```yaml
-version: '3'
-services:
-  bid-sender:
-    networks:
-      - app-network
-    environment:
-      - RPC_ENDPOINT=http://mev-commit-bidder:13524
-networks:
-  app-network:
-    external: true
+```shell
+cd external/geth
+git submodule update --init --recursive
 ```
-This ensures that the containers across different repositories can communicate with each other using container names, like mev-commit-bidder, for service discovery.
 
+Make the necessary changes to the submodule and commit (and push) them.
+To make the changes available in the main repository, you need to push the changes to the submodule.
+After making changes to the submodule, navigate back to the main repository and commit the changes.
+For example, to commit and push changes made to the `external/geth` submodule, run the following commands inside the submodule directory:
 
-# Troubleshooting
-Service not starting: Check the logs:
-
-```bash
-docker-compose logs -f mev-commit-bidder
+```shell
+git add -p
+git commit -m "<your-commit-message>"
+git push
 ```
+Go back to the main repository and commit (and push) the changes made to the submodule:
+
+```shell
+git add external/geth
+git commit -m "<your-commit-message>"
+git push
+```
+
+### Go Modules
+
+Since this repository uses [Go Workspaces](https://go.dev/ref/mod#workspaces) to manage Go modules, when making changes to a Go module and its dependencies, ensure that the changes are reflected everywhere by running the following command:
+
+```shell
+go list -f '{{.Dir}}' -m | xargs -L1 go mod tidy -C
+go work sync
+```
+
+> See the [go.work](go.work) file for all the Go modules used in this repository.
